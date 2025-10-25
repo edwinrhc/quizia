@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/quiz/pdf")
+@RequestMapping("/api/quiz/export")
 @RequiredArgsConstructor
 public class PdfController {
 
@@ -20,11 +20,11 @@ public class PdfController {
 
     @PostMapping("/pdf")
     public ResponseEntity<byte[]> exportToPdf(@RequestBody QuizResult result) {
-        byte[] pdf = pdfService.generatePdf(result);
+        byte[] pdfBytes = pdfService.generatePdf(result);
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=quiz_result.pdf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=quiz-" + result.getTopic() + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
-                .body(pdf);
+                .body(pdfBytes);
     }
 }
 
