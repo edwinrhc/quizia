@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class QuizController {
 
+
     private final AiService aiService;
 
     @PostMapping("/generate")
@@ -21,5 +22,6 @@ public class QuizController {
         String response = aiService.generateQuiz(request.getTopic(), request.getQuantity());
         return ResponseEntity.ok(response);
     }
+
 
 }
