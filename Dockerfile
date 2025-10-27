@@ -1,16 +1,17 @@
+#  Imagen base optimizada con Java 21
+FROM eclipse-temurin:21-jdk-jammy AS build
 
-# Imagen con java 21
-FROM openjdk:21-jdk-slim
-
-# Establecer el directorio de trabajo
+#  Directorio de trabajo
 WORKDIR /app
 
 # Copiar el jar compilado dentro del contenedor
 COPY target/quizia-0.0.1-SNAPSHOT.jar app.jar
 
-# Exponer el puerto
+#Exponer el puerto (Render usará el valor de $PORT)
 EXPOSE 8080
 
-# Comando de arranque
-ENTRYPOINT ["java","-jar","app.jar"]
+#Definir variables de entorno (opcional pero recomendable)
+ENV JAVA_OPTS="-Xms256m -Xmx512m"
 
+#Comando de arranque
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
