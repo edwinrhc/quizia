@@ -1,5 +1,6 @@
 package com.erhcdev.quizia.service;
 
+import com.erhcdev.quizia.dto.QuestionDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ public class AiService {
             .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
             .build();
 
-    public String generateQuiz(String topic, int numQuestions){
+/*    public String generateQuiz(String topic, int numQuestions){
         String prompt = String.format("""
                 Generate %d preguntas tipo test sobre %s. Devuelve SOLO un SJON válido con la estructura:
                 [
@@ -72,5 +73,68 @@ public class AiService {
             return "{\"error\": \"" + e.getMessage() + "\"}";
         }
 
+    }*/
+
+    // com.erhcdev.quizia.service.AiService (solo el método)
+    public List<QuestionDto> generateQuiz(String topic, int numQuestions){
+        String prompt = String.format("""
+        Genera %d preguntas tipo test sobre %s.
+        Devuelve SOLO un JSON VÁLIDO con EXACTAMENTE esta estructura (sin texto extra ni ```):
+        [
+          {"pregunta":"...","opciones":["A","B","C","D"],"respuesta_correcta":"A"}
+        ]
+        Reglas:
+        - "opciones" debe ser un array JSON de 4 strings sin prefijos "A) ", "B) ", etc.
+        - "respuesta_correcta" debe ser una letra entre "A" y "D".
+    """, numQuestions, topic);
+
+        Map<String, Object> body = Map.of(
+                "model", "openai/gpt-4o-mini", // en OpenRouter usa el proveedor+modelo
+                "messages", List.of(Map.of("role","user","content", prompt))
+        );
+
+        try {
+            String raw = webClient.post()
+                    .uri("/api/v1/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("HTTP-Referer", "https://erhc-dev.com")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(20));
+
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(raw);
+            String content = root.path("choices").get(0).path("message").path("content").asText();
+
+            // limpiar fences por si acaso
+            content = content.replace("```json","").replace("```","").trim();
+
+            // parsear a array
+            List<QuestionDto> list = mapper.readValue(
+                    content,
+                    mapper.getTypeFactory().constructCollectionType(List.class, QuestionDto.class)
+            );
+
+            // Normalización defensiva: asegurar opciones en forma correcta
+            for (QuestionDto q : list) {
+                if (q.getOpciones() == null || q.getOpciones().isEmpty()) continue;
+                // quitar prefijos tipo "A) " o "A. "
+                q.setOpciones(
+                        q.getOpciones().stream()
+                                .map(opt -> opt.replaceFirst("^[A-D][)\\.]\\s*", "").trim())
+                                .toList()
+                );
+                // clamp a 4 opciones
+                if (q.getOpciones().size() > 4) {
+                    q.setOpciones(q.getOpciones().subList(0,4));
+                }
+            }
+            return list;
+
+        } catch (Exception e) {
+            throw new RuntimeException("Error generando quiz: " + e.getMessage(), e);
+        }
     }
+
 }
